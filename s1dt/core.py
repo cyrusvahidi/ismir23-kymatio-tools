@@ -1,4 +1,4 @@
-import features
+import s1dt.features as features
 
 FEATURES_TABLE = {}
 
@@ -11,6 +11,3 @@ for name, cls in vars(features).items():
                 FEATURES_TABLE[cls.get_id()] = cls
             except NotImplementedError:
                 pass
-
-print(FEATURES_TABLE)
-            
