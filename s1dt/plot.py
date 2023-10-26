@@ -115,3 +115,50 @@ def mesh_plot_3d(X, Y, Z, target_idx, ylabel="FM (oct / s)"):
     ax.set_ylabel(ylabel)
 
     plt.show()
+
+
+def plot_isomap(Z, params, labels=[]):
+    """
+    Visualize the Isomap embedding in a 3D plot with parameters for color-coding.
+
+    Parameters:
+    -----------
+    Z : numpy.array
+        The reduced data after Isomap embedding.
+        Shape: (n_samples, 3)
+
+    params : list of numpy.array
+        A list containing 3 arrays which represent the parameters to be used
+        for color-coding in the 3D plots. Each array should match the number of
+        data points in `Z`.
+
+    labels : list of str
+        A list containing 3 labels, one for each of the plots to indicate the parameter
+        that has been used for color-coding
+
+    Returns:
+    --------
+    ax
+        The function visualizes the 3D plots for the Isomap embedding with
+        different color codings based on `params`.
+    """
+    fig = plt.figure(figsize=plt.figaspect(0.5))
+    axs = []
+
+    for i in range(3):
+        ax = fig.add_subplot(1, 3, i + 1, projection='3d')
+        ax.scatter3D(Z[:, 0], Z[:, 1], Z[:, 2], c=params[i], cmap='bwr');
+
+        ax.set_xticklabels([])
+        ax.set_yticklabels([])
+        ax.set_zticklabels([])
+        ax.title.set_text(labels[i])
+        axs.append(ax)
+
+    plt.subplots_adjust(wspace=0, hspace=0)
+
+    # rotate the axes and update
+    for angle in range(60, 360, 60):
+        for ax in axs:
+            ax.view_init(30, angle)
+            plt.draw()
