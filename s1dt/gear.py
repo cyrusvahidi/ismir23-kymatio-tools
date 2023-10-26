@@ -20,9 +20,10 @@ class GEAR:
     """ Generative Evaluate Audio Representations with respect to 
         a dataset `x` of parametric synthesizer sounds with parameters `theta`.
         Provides a wrapper to extract acoustic features `X` from the audio dataset `x`
-        given an instance of `s1dt.feature.AcousticFeature`.
+        given a `feature_id` corresponding to the id returned by the `get_id` method
+        of a subclass of `s1dt.feature.AcousticFeature`.
     """
-    def __init__(self, x, theta, n_neighbors=40, n_components=3):
+    def __init__(self, x, theta, feature_id, n_neighbors=40, n_components=3):
         self.model = Isomap(n_components=n_components, n_neighbors=n_neighbors)
 
         self.x = x

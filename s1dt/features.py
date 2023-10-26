@@ -19,7 +19,7 @@ class AcousticFeature:
                                   " for the features")
     
 
-class MFCC:
+class MFCC(AcousticFeature):
     def __init__(
         self,
         sr=44100,
@@ -37,7 +37,7 @@ class MFCC:
         return "mfcc"
     
 
-class Scat1d:
+class Scat1d(AcousticFeature):
     def __init__(
         self,
         sr=44100,
@@ -55,7 +55,7 @@ class Scat1d:
         return "scat1d"
     
 
-class JTFS:
+class JTFS(AcousticFeature):
     def __init__(
         self,
         sr=44100,
@@ -73,7 +73,7 @@ class JTFS:
         return "jtfs"
     
 
-class OpenL3:
+class OpenL3(AcousticFeature):
     def __init__(
         self,
         sr=44100,
@@ -91,7 +91,7 @@ class OpenL3:
         return "openl3"
     
 
-class YAMNet:
+class YAMNet(AcousticFeature):
     def __init__(
         self,
         sr=44100,
