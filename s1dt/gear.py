@@ -13,10 +13,11 @@ class GEAR:
     of a subclass of `s1dt.feature.AcousticFeature`.
     """
 
-    def __init__(self, x, theta, feature_id, n_neighbors=40, n_components=3):
+    def __init__(self, x, theta, feature_id, n_neighbors=40, n_components=3, **feature_kwargs):
         if feature_id not in FEATURES_TABLE:
             raise FeatureNotFoundError(feature_id)
 
+        self.feature = FEATURES_TABLE[feature_id](**feature_kwargs)
         self.model = Isomap(n_components=n_components, n_neighbors=n_neighbors)
 
         self.x = x
