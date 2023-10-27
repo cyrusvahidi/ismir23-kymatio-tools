@@ -14,6 +14,6 @@ setup(
         "torch",
         "numpy",
         "scipy",
-        "scitkit-learn"
+        "scikit-learn"
     ],
 )
