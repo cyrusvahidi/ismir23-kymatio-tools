@@ -20,7 +20,7 @@ class AcousticFeature:
         """
         self.sr = sr
         self.batch = batch
-        self.__computed = False
+        self.computed = False
 
     def compute_features(self, x):
         """
@@ -47,13 +47,6 @@ class AcousticFeature:
         raise NotImplementedError(
             "This method must return a string identifier" " for the features"
         )
-
-    @property
-    def computed(self):
-        """
-        This property returns a boolean indicating whether the features have been computed or not.
-        """
-        return self.__computed
 
     def to_device(self, device="cpu"):
         self.transform = (
@@ -122,7 +115,7 @@ class MFCC(AcousticFeature):
             )
         else:
             X = self.transform(x).mean(dim=-1)
-        self.__computed = True
+        self.computed = True
         return X
 
     @classmethod
