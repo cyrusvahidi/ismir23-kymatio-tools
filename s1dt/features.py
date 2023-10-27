@@ -95,7 +95,7 @@ class MFCC(AcousticFeature):
 
         self.transform = MFCC(sample_rate=sr, n_mfcc=n_mfcc, log_mels=log_mels)
 
-        self.to_devie(device)
+        self.to_device(device)
 
     def compute_features(self, x):
         """
