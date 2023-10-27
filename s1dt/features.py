@@ -1,6 +1,6 @@
 import math
 import torch
-from torchaudio.transforms import MFCC
+import torchaudio.transforms as T 
 
 
 class AcousticFeature:
@@ -93,7 +93,7 @@ class MFCC(AcousticFeature):
         """
         super().__init__(sr=sr, batch=batch)
 
-        self.transform = MFCC(sample_rate=sr, n_mfcc=n_mfcc, log_mels=log_mels)
+        self.transform = T.MFCC(sample_rate=sr, n_mfcc=n_mfcc, log_mels=log_mels)
 
         self.to_device(device)
 
