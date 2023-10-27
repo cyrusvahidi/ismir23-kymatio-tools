@@ -49,7 +49,7 @@ class GEAR:
         self.theta = theta
 
     def compute_features(self):
-        self.X = self.feature.compute_features(self.x)
+        self.X = self.feature.compute_features(self.x).cpu()
 
     def fit_model(self):
         """
