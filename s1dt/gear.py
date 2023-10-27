@@ -48,6 +48,9 @@ class GEAR:
         self.X = None
         self.theta = theta
 
+    def compute_features(self):
+        self.X = self.feature.compute_features(self.x)
+
     def fit_model(self):
         """
         Fits the Isomap model to the computed acoustic features.
@@ -56,7 +59,7 @@ class GEAR:
             FeaturesNotComputedError: Raised if the acoustic features have not been computed yet.
         """
         if not self.features.computed():
-            self.feature.compute_features()
+            self.compute_features()
         self.Z = self.model.fit_transform(self.X)
 
     def plot(self, labels=["$f_0$", "$f_m$", "$\gamma$"]):
@@ -69,4 +72,4 @@ class GEAR:
         Raises:
             FeaturesNotComputedError: Raised if the acoustic features have not been computed yet.
         """
-        plot_isomap(self.embedding_, self.theta.T)
+        plot_isomap(self.model.embedding_, self.theta.T, labels=labels)

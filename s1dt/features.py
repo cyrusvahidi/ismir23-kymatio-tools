@@ -1,3 +1,8 @@
+import math
+import torch
+from torchaudio.transforms import MFCC
+
+
 class AcousticFeature:
     def __init__(self, sr=44100, batch=1):
         """
@@ -49,19 +54,83 @@ class AcousticFeature:
         """
         return self.__computed
 
+    def to_device(self, device="cpu"):
+        self.transform = (
+            self.transform.cuda() if device == "cuda" else self.transform.cpu()
+        )
+
 
 class MFCC(AcousticFeature):
-    def __init__(self, sr=44100, batch=1):
-        self.sr = sr
-        self.batch = batch
+    """
+    The MFCC class is a subclass of the AcousticFeature class that computes the Mel-frequency cepstral coefficients (MFCCs) of an audio signal.
 
-    def compute_features(self):
-        raise NotImplementedError(
-            "This method must contain the actual " "implementation of the features"
-        )
+    Attributes:
+        sr (int): The sample rate of the audio signal.
+        batch (int): The number of audio signals to process at once.
+        n_mfcc (int): The number of MFCCs to compute.
+        log_mels (bool): Whether to compute the log-mel spectrogram.
+
+    Methods:
+        compute_features(x): Computes the MFCCs for the given audio signal(s).
+        get_id(): Returns a string identifier for the MFCCs.
+
+    Raises:
+        ImportError: Raised if the librosa library is not installed.
+    """
+
+    def __init__(self, sr=44100, batch=0, n_mfcc=40, log_mels=True, device="cpu"):
+        """
+        Initializes a new instance of the MFCC class.
+
+        Args:
+            sr (int): The sample rate of the audio signal.
+            batch (int): The number of audio signals to process at once.
+            n_mfcc (int): The number of MFCCs to compute.
+            log_mels (bool): Whether to compute the log-mel spectrogram.
+
+        Raises:
+            ImportError: Raised if the librosa library is not installed.
+        """
+        super().__init__(sr=sr, batch=batch)
+
+        self.transform = MFCC(sample_rate=sr, n_mfcc=n_mfcc, log_mels=log_mels)
+
+        self.to_devie(device)
+
+    def compute_features(self, x):
+        """
+        Computes the MFCCs for the given audio signal(s).
+
+        Args:
+            x (ndarray): The audio signal(s) to compute the MFCCs for.
+
+        Returns:
+            ndarray: The computed MFCCs.
+
+        Raises:
+            ValueError: Raised if the input audio signal(s) have an invalid shape.
+        """
+        if self.batch:
+            X = torch.cat(
+                [
+                    self.transform(x[i * self.batch : (i + 1) * self.batch, :]).mean(
+                        dim=-1
+                    )
+                    for i in range(math.ceil(x.shape[0] / self.batch))
+                ]
+            )
+        else:
+            X = self.transform(x).mean(dim=-1)
+        return X
 
     @classmethod
     def get_id(cls):
+        """
+        Returns a string identifier for the MFCCs.
+
+        Returns:
+            str: The string identifier for the MFCCs.
+        """
         return "mfcc"
 
 

@@ -9,5 +9,11 @@ setup(
     include_package_data=True,
     packages=['s1dt'],
     url="https://github.com/cyrusvahidi/scattering-tools",
-    install_requires=[],
+    install_requires=[
+        "torchaudio",
+        "torch",
+        "numpy",
+        "scipy"
+        "scitkit-learn"
+    ],
 )
