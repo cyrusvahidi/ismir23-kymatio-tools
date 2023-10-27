@@ -14,6 +14,7 @@ setup(
         "torch",
         "numpy",
         "scipy",
-        "scikit-learn"
+        "scikit-learn",
+        "openl3"
     ],
 )
