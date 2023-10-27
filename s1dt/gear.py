@@ -58,7 +58,7 @@ class GEAR:
         Raises:
             FeaturesNotComputedError: Raised if the acoustic features have not been computed yet.
         """
-        if not self.feature.computed():
+        if not self.feature.computed:
             self.compute_features()
         self.Z = self.model.fit_transform(self.X)
 
