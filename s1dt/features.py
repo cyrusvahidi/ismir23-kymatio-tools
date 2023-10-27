@@ -20,6 +20,7 @@ class AcousticFeature:
         """
         self.sr = sr
         self.batch = batch
+        self.__computed = False
 
     def compute_features(self, x):
         """
@@ -121,6 +122,7 @@ class MFCC(AcousticFeature):
             )
         else:
             X = self.transform(x).mean(dim=-1)
+        self.__computed = True
         return X
 
     @classmethod
