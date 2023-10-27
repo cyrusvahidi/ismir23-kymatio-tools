@@ -13,7 +13,7 @@ setup(
         "torchaudio",
         "torch",
         "numpy",
-        "scipy"
+        "scipy",
         "scitkit-learn"
     ],
 )
