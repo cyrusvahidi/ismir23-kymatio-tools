@@ -2,6 +2,8 @@ import math
 import torch
 import torchaudio.transforms as T 
 
+from kymatio.torch import Scattering1D, TimeFrequencyScattering 
+import openl3
 
 class AcousticFeature:
     def __init__(self, sr=44100, batch=1):
@@ -72,16 +74,16 @@ class MFCC(AcousticFeature):
         ImportError: Raised if the librosa library is not installed.
     """
 
-    def __init__(self, sr=44100, batch=0, n_mfcc=40, log_mels=True, device="cpu"):
+    def __init__(self, sr=44100, batch=0, device="cpu", n_mfcc=40, log_mels=True):
         """
         Initializes a new instance of the MFCC class.
 
         Args:
             sr (int): The sample rate of the audio signal.
             batch (int): The number of audio signals to process at once.
+            device (str): The device to use for computation. Either "cpu" or "cuda".
             n_mfcc (int): The number of MFCCs to compute.
             log_mels (bool): Whether to compute the log-mel spectrogram.
-
         Raises:
             ImportError: Raised if the librosa library is not installed.
         """
@@ -130,11 +132,46 @@ class MFCC(AcousticFeature):
 
 
 class Scat1d(AcousticFeature):
-    def __init__(self, sr=44100, batch=1):
+    """ 
+    The Scat1d class is a subclass of the AcousticFeature class that computes the 1D scattering transform of an audio signal.
+
+    Attributes: 
+        sr (int): The sample rate of the audio signal.
+        batch (int): The number of audio signals to process at once.
+        J (int): The maximum scale of the scattering transform.
+        Q (int): The number of wavelets per octave.
+        device (str): The device to use for computation. Either "cpu" or "cuda".
+    Methods:
+        compute_features(x): Computes the 1D scattering transform for the given audio signal(s).
+        get_id(): Returns a string identifier for the 1D scattering transform.
+    """
+    def __init__(self, sr=44100, batch=1, device="cpu"):
+        """
+        Initializes a new instance of the Scat1d class.
+        
+        Args:
+            sr (int): The sample rate of the audio signal.
+            batch (int): The number of audio signals to process at once.
+            device (str): The device to use for computation. Either "cpu" or "cuda".
+        """
         self.sr = sr
         self.batch = batch
 
+        self.to_device(device)
+
     def compute_features(self):
+        """
+        Computes the Scattering1D coefficients for the given audio signal(s).
+
+        Args:
+            x (ndarray): The audio signal(s) to compute the Scattering1D for.
+
+        Returns:
+            ndarray: The computed Scattering1D coefficients.
+
+        Raises:
+            ValueError: Raised if the input audio signal(s) have an invalid shape.
+        """ 
         raise NotImplementedError(
             "This method must contain the actual " "implementation of the features"
         )
