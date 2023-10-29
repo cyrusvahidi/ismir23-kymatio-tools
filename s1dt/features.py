@@ -2,10 +2,12 @@ import math
 from functools import partial
 import numpy as np
 import torch
-import torchaudio.transforms as T 
+import torchaudio.transforms as T
+from tqdm import tqdm
 
-from kymatio.torch import Scattering1D, TimeFrequencyScattering 
+from kymatio.torch import Scattering1D, TimeFrequencyScattering
 import openl3
+
 
 class AcousticFeature:
     def __init__(self, sr=44100, batch=1):
@@ -132,49 +134,58 @@ class MFCC(AcousticFeature):
 
 
 class Scat1d(AcousticFeature):
-    """ 
+    """
     The Scat1d class is a subclass of the AcousticFeature class that computes the 1D scattering transform of an audio signal.
 
-    Attributes: 
+    Attributes:
         sr (int): The sample rate of the audio signal.
         batch (int): The number of audio signals to process at once.
+        device (str): The device to use for computation. Either "cpu" or "cuda".
         J (int): The maximum scale of the scattering transform.
         Q (int): The number of wavelets per octave.
-        device (str): The device to use for computation. Either "cpu" or "cuda".
+        T (int or None): The size of the temporal window used for the scattering transform. If None, the size is automatically determined based on the signal length.
+        shape (int or None): The size of the input signal. If None, the size is automatically determined based on the shape of the input tensor.
+
     Methods:
+        __init__(sr=44100, batch=1, device="cpu", shape=None, J=8, Q=1, T=None): Initializes a new instance of the Scat1d class.
         compute_features(x): Computes the 1D scattering transform for the given audio signal(s).
         get_id(): Returns a string identifier for the 1D scattering transform.
     """
+
     def __init__(self, sr=44100, batch=1, device="cpu", shape=None, J=8, Q=1, T=None):
         """
         Initializes a new instance of the Scat1d class.
-        
+
         Args:
             sr (int): The sample rate of the audio signal.
             batch (int): The number of audio signals to process at once.
             device (str): The device to use for computation. Either "cpu" or "cuda".
+            shape (int or None): The size of the input signal. If None, the size is automatically determined based on the shape of the input tensor.
+            J (int): The maximum scale of the scattering transform.
+            Q (int): The number of wavelets per octave.
+            T (int or None): The size of the temporal window used for the scattering transform. If None, the size is automatically determined based on the signal length.
         """
         super().__init__(sr=sr, batch=batch)
         self.sr = sr
         self.batch = batch
-        
+
         self.transform = Scattering1D(shape=shape, T=T, Q=Q, J=int(np.log2(shape) - 1))
 
         self.to_device(device)
 
     def compute_features(self, x):
         """
-        Computes the Scattering1D coefficients for the given audio signal(s).
+        Computes the 1D scattering transform for the given audio signal(s).
 
         Args:
-            x (ndarray): The audio signal(s) to compute the Scattering1D for.
+            x (ndarray): The audio signal(s) to compute the 1D scattering transform for.
 
         Returns:
-            ndarray: The computed Scattering1D coefficients.
+            ndarray: The computed 1D scattering transform coefficients.
 
         Raises:
             ValueError: Raised if the input audio signal(s) have an invalid shape.
-        """ 
+        """
         X = torch.cat(
             [
                 self.transform(x[i * self.batch : (i + 1) * self.batch, :]).mean(dim=-1)
@@ -185,52 +196,133 @@ class Scat1d(AcousticFeature):
 
     @classmethod
     def get_id(cls):
+        """
+        Returns a string identifier for the 1D scattering transform.
+
+        Returns:
+            str: The string identifier for the 1D scattering transform.
+        """
         return "scat1d"
 
 
 class JTFS(AcousticFeature):
-    def __init__(self, sr=44100, batch=1, device="cpu", shape=None, J=13, Q=(8, 1), T=None, Q_fr=2, J_fr=5, F=0):
+    """
+    The JTFS class is a subclass of the AcousticFeature class that computes the joint time-frequency scattering transform of an audio signal.
+
+    Attributes:
+        sr (int): The sample rate of the audio signal.
+        batch (int): The number of audio signals to process at once.
+        device (str): The device to use for computation. Either "cpu" or "cuda".
+        J (int): The maximum scale of the scattering transform.
+        Q (tuple): The number of wavelets per octave for the first and second order scattering coefficients.
+        T (int or None): The size of the temporal window used for the scattering transform. If None, the size is automatically determined based on the signal length.
+        Q_fr (int): The number of wavelets per octave for the frequency scattering coefficients.
+        J_fr (int): The maximum scale of the frequency scattering transform.
+        F (int): The number of frequency bins to use for the frequency scattering transform. If 0, the number of frequency bins is automatically determined based on the signal length.
+
+    Methods:
+        __init__(sr=44100, batch=1, device="cpu", shape=None, J=13, Q=(8, 1), T=None, Q_fr=2, J_fr=5, F=0): Initializes a new instance of the JTFS class.
+        compute_features(x): Computes the joint time-frequency scattering transform for the given audio signal(s).
+        get_id(): Returns a string identifier for the joint time-frequency scattering transform.
+    """
+
+    def __init__(
+        self,
+        sr=44100,
+        batch=1,
+        device="cpu",
+        shape=None,
+        J=13,
+        Q=(8, 1),
+        T=None,
+        Q_fr=2,
+        J_fr=5,
+        F=0,
+    ):
+        """
+        Initializes a new instance of the JTFS class.
+
+        Args:
+            sr (int): The sample rate of the audio signal.
+            batch (int): The number of audio signals to process at once.
+            device (str): The device to use for computation. Either "cpu" or "cuda".
+            shape (int or None): The size of the input signal. If None, the size is automatically determined based on the shape of the input tensor.
+            J (int): The maximum scale of the scattering transform.
+            Q (tuple): The number of wavelets per octave for the first and second order scattering coefficients.
+            T (int or None): support of temporal averaging lowpass filter \phi_T
+            Q_fr (int): The number of wavelets per octave for the frequency scattering coefficients.
+            J_fr (int): The maximum scale of the frequency scattering transform.
+            F (int): support of frequential averaging lowpass filter  \phi_F
+        """
         self.sr = sr
         self.batch = batch
 
-        self.transform = TimeFrequencyScattering(shape=shape,
-                               T=T,
-                               Q=Q,
-                               J=J, # int(np.log2(N) - 1),
-                               Q_fr=Q_fr,
-                               J_fr=J_fr,
-                               F=F,
-                               format="time")
+        self.transform = TimeFrequencyScattering(
+            shape=shape,
+            T=T,
+            Q=Q,
+            J=J,  # int(np.log2(N) - 1),
+            Q_fr=Q_fr,
+            J_fr=J_fr,
+            F=F,
+            format="time",
+        )
         self.to_device(device)
 
     def compute_features(self, x):
+        """
+        Computes the joint time-frequency scattering transform for the given audio signal(s).
+
+        Args:
+            x (ndarray): The audio signal(s) to compute the joint time-frequency scattering transform for.
+
+        Returns:
+            ndarray: The computed joint time-frequency scattering transform coefficients.
+
+        Raises:
+            ValueError: Raised if the input audio signal(s) have an invalid shape.
+        """
         X = torch.cat(
             [
                 self.transform(x[i * self.batch : (i + 1) * self.batch, :]).mean(dim=-1)
-                for i in range(math.ceil(x.shape[0] / self.batch))
+                for i in tqdm(range(math.ceil(x.shape[0] / self.batch)))
             ]
         )
         return X
 
     @classmethod
     def get_id(cls):
+        """
+        Returns a string identifier for the joint time-frequency scattering transform.
+
+        Returns:
+            str: The string identifier for the joint time-frequency scattering transform.
+        """
         return "jtfs"
 
 
 class OpenL3(AcousticFeature):
-    def __init__(self, sr=44100, batch=1, device="cpu"):
+    def __init__(self, sr=44100, batch=1, device="cpu", embedding_size=512):
         self.sr = sr
         self.batch = batch
-
-        self.transform = partial(openl3.get_audio_embedding, 
-                                 sr=sr, batch_size=batch, content_type="music", embedding_size=6144, 
-                                 input_repr="mel128",
-                                 frontend="kapre" if device == "cuda" else "librosa")
+        self.transform = partial(
+            openl3.get_audio_embedding,
+            sr=sr,
+            content_type="music",
+            embedding_size=embedding_size,
+            input_repr="mel128",
+            frontend="kapre" if device == "cuda" else "librosa",
+        )
 
     def compute_features(self, x):
-        X, _ = self.transform(list(x.numpy()))
-        # average at time dimension axis=1
-        X = np.mean(np.array(X), axis=1)
+        X = torch.cat(
+            [
+                self.transform(
+                    list(x[i * self.batch : (i + 1) * self.batch, :].numpy())
+                ).mean(axis=1)
+                for i in tqdm(range(math.ceil(x.shape[0] / self.batch)))
+            ]
+        )
         return X
 
     @classmethod

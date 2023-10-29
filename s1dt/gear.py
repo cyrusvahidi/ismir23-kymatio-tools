@@ -23,7 +23,17 @@ class GEAR:
     Raises:
         FeatureNotFoundError: Raised if the specified feature_id is not found in the FEATURES_TABLE.
     """
-    def __init__(self, x, theta, feature_id, n_neighbors=40, n_components=3, *feature_args, **feature_kwargs):
+
+    def __init__(
+        self,
+        x,
+        theta,
+        feature_id,
+        n_neighbors=40,
+        n_components=3,
+        *feature_args,
+        **feature_kwargs
+    ):
         """
         Initializes a new instance of the GEAR class.
 
