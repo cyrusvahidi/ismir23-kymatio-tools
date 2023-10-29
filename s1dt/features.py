@@ -317,8 +317,10 @@ class OpenL3(AcousticFeature):
     def compute_features(self, x):
         X = torch.cat(
             [
-                self.transform(
-                    list(x[i * self.batch : (i + 1) * self.batch, :].numpy())
+                torch.tensor(
+                    self.transform(
+                        list(x[i * self.batch : (i + 1) * self.batch, :].numpy())
+                    )[0]
                 ).mean(axis=1)
                 for i in tqdm(range(math.ceil(x.shape[0] / self.batch)))
             ]
