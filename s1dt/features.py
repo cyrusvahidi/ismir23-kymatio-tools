@@ -309,6 +309,7 @@ class OpenL3(AcousticFeature):
             openl3.get_audio_embedding,
             sr=sr,
             content_type="music",
+            batch_size=batch,
             embedding_size=embedding_size,
             input_repr="mel128",
             frontend="kapre" if device == "cuda" else "librosa",
@@ -319,7 +320,7 @@ class OpenL3(AcousticFeature):
             [
                 torch.tensor(
                     self.transform(
-                        list(x[i * self.batch : (i + 1) * self.batch, :].numpy())
+                        list(x[i * self.batch : (i + 1) * self.batch, None, :].numpy())
                     )[0]
                 ).mean(axis=1)
                 for i in tqdm(range(math.ceil(x.shape[0] / self.batch)))
