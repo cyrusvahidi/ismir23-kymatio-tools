@@ -23,7 +23,7 @@ class GEAR:
     Raises:
         FeatureNotFoundError: Raised if the specified feature_id is not found in the FEATURES_TABLE.
     """
-    def __init__(self, x, theta, feature_id, n_neighbors=40, n_components=3, **feature_kwargs):
+    def __init__(self, x, theta, feature_id, n_neighbors=40, n_components=3, *feature_args, **feature_kwargs):
         """
         Initializes a new instance of the GEAR class.
 
@@ -41,7 +41,7 @@ class GEAR:
         if feature_id not in FEATURES_TABLE:
             raise FeatureNotFoundError(feature_id)
 
-        self.feature = FEATURES_TABLE[feature_id](**feature_kwargs)
+        self.feature = FEATURES_TABLE[feature_id](*feature_args, **feature_kwargs)
         self.model = Isomap(n_components=n_components, n_neighbors=n_neighbors)
 
         self.x = x
@@ -58,9 +58,8 @@ class GEAR:
         Raises:
             FeaturesNotComputedError: Raised if the acoustic features have not been computed yet.
         """
-        if not self.feature.computed:
-            self.compute_features()
-        self.Z = self.model.fit_transform(self.X)
+        if self.X is not None:
+            self.Z = self.model.fit_transform(self.X)
 
     def plot(self, labels=["$f_0$", "$f_m$", "$\gamma$"]):
         """

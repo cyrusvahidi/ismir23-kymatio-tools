@@ -1,4 +1,6 @@
 import math
+from functools import partial
+import numpy as np
 import torch
 import torchaudio.transforms as T 
 
@@ -22,7 +24,6 @@ class AcousticFeature:
         """
         self.sr = sr
         self.batch = batch
-        self.computed = False
 
     def compute_features(self, x):
         """
@@ -117,7 +118,6 @@ class MFCC(AcousticFeature):
             )
         else:
             X = self.transform(x).mean(dim=-1)
-        self.computed = True
         return X
 
     @classmethod
@@ -145,7 +145,7 @@ class Scat1d(AcousticFeature):
         compute_features(x): Computes the 1D scattering transform for the given audio signal(s).
         get_id(): Returns a string identifier for the 1D scattering transform.
     """
-    def __init__(self, sr=44100, batch=1, device="cpu"):
+    def __init__(self, sr=44100, batch=1, device="cpu", shape=None, J=8, Q=1, T=None):
         """
         Initializes a new instance of the Scat1d class.
         
@@ -154,12 +154,15 @@ class Scat1d(AcousticFeature):
             batch (int): The number of audio signals to process at once.
             device (str): The device to use for computation. Either "cpu" or "cuda".
         """
+        super().__init__(sr=sr, batch=batch)
         self.sr = sr
         self.batch = batch
+        
+        self.transform = Scattering1D(shape=shape, T=T, Q=Q, J=int(np.log2(shape) - 1))
 
         self.to_device(device)
 
-    def compute_features(self):
+    def compute_features(self, x):
         """
         Computes the Scattering1D coefficients for the given audio signal(s).
 
@@ -172,9 +175,13 @@ class Scat1d(AcousticFeature):
         Raises:
             ValueError: Raised if the input audio signal(s) have an invalid shape.
         """ 
-        raise NotImplementedError(
-            "This method must contain the actual " "implementation of the features"
+        X = torch.cat(
+            [
+                self.transform(x[i * self.batch : (i + 1) * self.batch, :]).mean(dim=-1)
+                for i in range(math.ceil(x.shape[0] / self.batch))
+            ]
         )
+        return X
 
     @classmethod
     def get_id(cls):
@@ -182,14 +189,27 @@ class Scat1d(AcousticFeature):
 
 
 class JTFS(AcousticFeature):
-    def __init__(self, sr=44100, batch=1):
+    def __init__(self, sr=44100, batch=1, device="cpu", shape=None, J=13, Q=(8, 1), T=None, Q_fr=2, J_fr=5, F=0):
         self.sr = sr
         self.batch = batch
 
-    def compute_features(self):
-        raise NotImplementedError(
-            "This method must contain the actual " "implementation of the features"
+        self.transform = TimeFrequencyScattering(shape=shape,
+                               T=T,
+                               Q=Q,
+                               J=J, # int(np.log2(N) - 1),
+                               Q_fr=Q_fr,
+                               J_fr=J_fr,
+                               F=F,
+                               format="time")
+
+    def compute_features(self, x):
+        X = torch.cat(
+            [
+                self.transform(x[i * self.batch : (i + 1) * self.batch, :]).mean(dim=-1)
+                for i in range(math.ceil(x.shape[0] / self.batch))
+            ]
         )
+        return X
 
     @classmethod
     def get_id(cls):
@@ -197,14 +217,20 @@ class JTFS(AcousticFeature):
 
 
 class OpenL3(AcousticFeature):
-    def __init__(self, sr=44100, batch=1):
+    def __init__(self, sr=44100, batch=1, device="cpu"):
         self.sr = sr
         self.batch = batch
 
-    def compute_features(self):
-        raise NotImplementedError(
-            "This method must contain the actual " "implementation of the features"
-        )
+        self.transform = partial(openl3.get_audio_embedding, 
+                                 sr=sr, batch_size=batch, content_type="music", embedding_size=6144, 
+                                 input_repr="mel128",
+                                 frontend="kapre" if device == "cuda" else "librosa")
+
+    def compute_features(self, x):
+        X, _ = self.transform(list(x.numpy()))
+        # average at time dimension axis=1
+        X = np.mean(np.array(X), axis=1)
+        return X
 
     @classmethod
     def get_id(cls):
