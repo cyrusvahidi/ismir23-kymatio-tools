@@ -201,6 +201,7 @@ class JTFS(AcousticFeature):
                                J_fr=J_fr,
                                F=F,
                                format="time")
+        self.to_device(device)
 
     def compute_features(self, x):
         X = torch.cat(
