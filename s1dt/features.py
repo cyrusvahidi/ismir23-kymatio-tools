@@ -192,6 +192,8 @@ class Scat1d(AcousticFeature):
                 for i in range(math.ceil(x.shape[0] / self.batch))
             ]
         )
+        self.mu = X.mean(dim=0)
+        self.median = X.median(dim=0)[0]
         return X
 
     @classmethod
@@ -288,6 +290,8 @@ class JTFS(AcousticFeature):
                 for i in tqdm(range(math.ceil(x.shape[0] / self.batch)))
             ]
         )
+        self.mu = X.mean(dim=0)
+        self.median = X.median(dim=0)[0]
         return X
 
     @classmethod
