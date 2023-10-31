@@ -152,7 +152,7 @@ class Scat1d(AcousticFeature):
         get_id(): Returns a string identifier for the 1D scattering transform.
     """
 
-    def __init__(self, sr=44100, batch=1, device="cpu", shape=None, J=8, Q=1, T=None):
+    def __init__(self, sr=44100, batch=1, device="cpu", shape=None, J=8, Q=(1, 1), T=None, global_avg=True):
         """
         Initializes a new instance of the Scat1d class.
 
@@ -169,9 +169,11 @@ class Scat1d(AcousticFeature):
         self.sr = sr
         self.batch = batch
 
-        self.transform = Scattering1D(shape=shape, T=T, Q=Q, J=int(np.log2(shape) - 1))
+        self.transform = Scattering1D(shape=shape, T=T, Q=Q, J=J)
 
         self.to_device(device)
+
+        self.global_avg = global_avg
 
     def compute_features(self, x):
         """
@@ -188,10 +190,12 @@ class Scat1d(AcousticFeature):
         """
         X = torch.cat(
             [
-                self.transform(x[i * self.batch : (i + 1) * self.batch, :]).mean(dim=-1)
-                for i in range(math.ceil(x.shape[0] / self.batch))
+                self.transform(x[i * self.batch : (i + 1) * self.batch, :])
+                for i in tqdm(range(math.ceil(x.shape[0] / self.batch)))
             ]
         )
+        if self.global_avg:
+            X = X.mean(dim=-1)
         self.mu = X.mean(dim=0)
         self.median = X.median(dim=0)[0]
         return X
@@ -240,6 +244,7 @@ class JTFS(AcousticFeature):
         Q_fr=2,
         J_fr=5,
         F=0,
+        global_avg=True
     ):
         """
         Initializes a new instance of the JTFS class.
@@ -260,16 +265,18 @@ class JTFS(AcousticFeature):
         self.batch = batch
 
         self.transform = TimeFrequencyScattering(
+            J=J,
+            J_fr=J_fr, 
             shape=shape,
-            T=T,
             Q=Q,
-            J=J,  # int(np.log2(N) - 1),
+            T=T,
             Q_fr=Q_fr,
-            J_fr=J_fr,
             F=F,
-            format="time",
+            format="time"
         )
         self.to_device(device)
+
+        self.global_avg = global_avg
 
     def compute_features(self, x):
         """
@@ -286,10 +293,12 @@ class JTFS(AcousticFeature):
         """
         X = torch.cat(
             [
-                self.transform(x[i * self.batch : (i + 1) * self.batch, :]).mean(dim=-1)
+                self.transform(x[i * self.batch : (i + 1) * self.batch, :])
                 for i in tqdm(range(math.ceil(x.shape[0] / self.batch)))
             ]
         )
+        if self.global_avg:
+            X = X.mean(dim=-1)
         self.mu = X.mean(dim=0)
         self.median = X.median(dim=0)[0]
         return X
