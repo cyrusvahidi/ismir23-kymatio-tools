@@ -92,6 +92,20 @@ def get_fname(fpath):
 
 
 class SOLExtractor:
+    """
+    A class used to load and process audio files from the SOL dataset.
+
+    This class is responsible for loading audio files from a specified directory, normalizing the audio data, and then padding or trimming the audio data to a specified length.
+
+    Attributes:
+    sol_dir (str): The directory where the audio files are located.
+    output_dir (str): The directory where the processed audio files will be saved.
+    in_shape (int): The desired length of the audio data after padding or trimming.
+    filelist (list): A list of file paths for the audio files to be processed.
+
+    Methods:
+    load_audio(filepath): Loads an audio file from the provided file path and normalizes it. The audio data is then padded or trimmed to match `in_shape`.
+    """
     def __init__(
         self,
         sol_dir,
@@ -107,8 +121,21 @@ class SOLExtractor:
         self.filelist = glob.glob(os.path.join(sol_dir, "*.wav"))
 
     def load_audio(self, filepath):
+        """
+        Loads an audio file from the provided file path and normalizes it.
+
+        The audio data is padded or trimmed along its axis to match the desired shape (`self.in_shape`). 
+        If the audio data is shorter than `self.in_shape`, it will be padded (i.e., zeros will be added to the end of the audio data) to reach the desired length. 
+        If the audio data is longer than `self.in_shape`, it will be trimmed (i.e., the extra data at the end will be removed) to match the desired length.
+
+        Parameters:
+        filepath (str): The path to the audio file to be loaded.
+
+        Returns:
+        audio (Tensor): The loaded and processed audio data as a PyTorch tensor.
+        """
         audio, sr = load_audio_file(filepath, preprocessors=[normalize_audio])
-        audio = pad_or_trim_along_axis(normalize_audio(audio), self.in_shape)
+        audio = pad_or_trim_along_axis(audio, self.in_shape)
         audio = torch_float32(audio)
         return audio
 
@@ -122,6 +149,20 @@ class SOLExtractor:
 
 
 class FeatureExtractorSOL(SOLExtractor):
+    """
+    A class used to extract features from audio files in the SOL dataset.
+
+    This class uses two types of feature extraction methods: scat1d and jtfs. 
+    The extracted features are then saved for further use.
+
+    Attributes:
+    sol_dir (str): The directory where the audio files are located.
+    batch_size (int): The number of audio files to be processed at a time.
+    device (str): The device to use for computations.
+
+    Methods:
+    extract_features(): Extracts features from the audio files.
+    """
     def __init__(
         self,
         sol_dir,
@@ -149,6 +190,19 @@ class FeatureExtractorSOL(SOLExtractor):
             np.save(fname, self.Sx[i])
 
     def extract(self):
+        """
+        Loads audio files and extracts features from them.
+
+        This method first loads the audio files from the specified directory. 
+        It then computes the features of the audio files using the specified feature extraction method. 
+        The computed features are stored in the `Sx` attribute of the class.
+
+        Parameters:
+        None
+
+        Returns:
+        None
+        """
         print("Loading audio ...")
         audio = torch.stack([self.load_audio(os.path.join(self.sol_dir, filepath)) for idx, filepath in enumerate(tqdm(self.filelist))])
         print("Extracting features ...")
@@ -159,6 +213,21 @@ def extract_features(
     batch_size=16, 
     device="cuda"
 ):
+    """
+    Extracts features from audio files located in the specified directory.
+
+    This function uses two types of feature extraction methods: scat1d and jtfs. 
+    The extracted features are then saved for further use.
+
+    Parameters:
+    sol_dir (str): The directory where the audio files are located. 
+                   Default is "/import/c4dm-datasets/SOL_0.9_HQ-PMT/".
+    batch_size (int): The number of audio files to be processed at a time. Default is 16.
+    device (str): The device to use for computations. Default is "cuda" for GPU usage.
+
+    Returns:
+    None
+    """
     features = {
         "scat1d": {
             "shape": (2**16, ),
