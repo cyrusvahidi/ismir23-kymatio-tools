@@ -101,7 +101,6 @@ class SOLExtractor:
     sol_dir (str): The directory where the audio files are located.
     output_dir (str): The directory where the processed audio files will be saved.
     in_shape (int): The desired length of the audio data after padding or trimming.
-    filelist (list): A list of file paths for the audio files to be processed.
 
     Methods:
     load_audio(filepath): Loads an audio file from the provided file path and normalizes it. The audio data is then padded or trimmed to match `in_shape`.
