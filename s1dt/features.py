@@ -3,12 +3,14 @@ from functools import partial
 import numpy as np
 import torch
 import torchaudio.transforms as T
+import tensorflow_hub as hub
 from tqdm import tqdm
 
 from kymatio.torch import Scattering1D, TimeFrequencyScattering
 import openl3
 
 import nnAudio.features as nnFeatures
+
 
 class AcousticFeature:
     def __init__(self, sr=44100, batch=1):
@@ -153,7 +155,17 @@ class Scat1d(AcousticFeature):
         get_id(): Returns a string identifier for the 1D scattering transform.
     """
 
-    def __init__(self, sr=44100, batch=1, device="cpu", shape=None, J=8, Q=(1, 1), T=None, global_avg=True):
+    def __init__(
+        self,
+        sr=44100,
+        batch=1,
+        device="cpu",
+        shape=None,
+        J=8,
+        Q=(1, 1),
+        T=None,
+        global_avg=True,
+    ):
         """
         Initializes a new instance of the Scat1d class.
 
@@ -245,7 +257,7 @@ class JTFS(AcousticFeature):
         Q_fr=2,
         J_fr=5,
         F=0,
-        global_avg=True
+        global_avg=True,
     ):
         """
         Initializes a new instance of the JTFS class.
@@ -266,14 +278,7 @@ class JTFS(AcousticFeature):
         self.batch = batch
 
         self.transform = TimeFrequencyScattering(
-            J=J,
-            J_fr=J_fr, 
-            shape=shape,
-            Q=Q,
-            T=T,
-            Q_fr=Q_fr,
-            F=F,
-            format="time"
+            J=J, J_fr=J_fr, shape=shape, Q=Q, T=T, Q_fr=Q_fr, F=F, format="time"
         )
         self.to_device(device)
 
@@ -316,7 +321,7 @@ class JTFS(AcousticFeature):
 
 
 class OpenL3(AcousticFeature):
-    def __init__(self, sr=44100, batch=1, device="cpu", embedding_size=512):
+    def __init__(self, sr=44100, batch=1, device="cpu", embedding_size=6144):
         self.sr = sr
         self.batch = batch
         self.transform = partial(
@@ -330,13 +335,14 @@ class OpenL3(AcousticFeature):
         )
 
     def compute_features(self, x):
+        breakpoint()
         X = torch.cat(
             [
                 torch.tensor(
                     self.transform(
                         list(x[i * self.batch : (i + 1) * self.batch, None, :].numpy())
                     )[0]
-                ).mean(axis=1)
+                ).mean(axis=-1)
                 for i in tqdm(range(math.ceil(x.shape[0] / self.batch)))
             ]
         )
@@ -352,10 +358,16 @@ class YAMNet(AcousticFeature):
         self.sr = sr
         self.batch = batch
 
-    def compute_features(self):
-        raise NotImplementedError(
-            "This method must contain the actual " "implementation of the features"
+        self.transform = hub.load("https://tfhub.dev/google/yamnet/1")
+
+    def compute_features(self, x):
+        X = np.array(
+            [
+                self.transform(x[i * self.batch : (i + 1) * self.batch, :])
+                for i in tqdm(range(math.ceil(x.shape[0] / self.batch)))
+            ]
         )
+        return X
 
     @classmethod
     def get_id(cls):
@@ -381,7 +393,16 @@ class CQT(AcousticFeature):
         get_id(): Returns a string identifier for the 1D scattering transform.
     """
 
-    def __init__(self, sr=44100, batch=1, device="cpu", n_bins=144, bins_per_octave=12, hop_length=512, global_avg=True):
+    def __init__(
+        self,
+        sr=44100,
+        batch=1,
+        device="cpu",
+        n_bins=144,
+        bins_per_octave=12,
+        hop_length=512,
+        global_avg=True,
+    ):
         """
         Initializes a new instance of the Scat1d class.
 
@@ -394,7 +415,9 @@ class CQT(AcousticFeature):
         self.sr = sr
         self.batch = batch
 
-        self.transform = nnFeatures.CQT(sr=sr, n_bins=n_bins, bins_per_octave=bins_per_octave, hop_length=hop_length)
+        self.transform = nnFeatures.CQT(
+            sr=sr, n_bins=n_bins, bins_per_octave=bins_per_octave, hop_length=hop_length
+        )
 
         self.to_device(device)
 
@@ -434,4 +457,3 @@ class CQT(AcousticFeature):
             str: The string identifier for the CQT
         """
         return "cqt"
-
