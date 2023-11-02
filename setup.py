@@ -15,6 +15,7 @@ setup(
         "numpy",
         "scipy",
         "scikit-learn",
-        "openl3"
+        "openl3", 
+        "nnAudio"
     ],
 )

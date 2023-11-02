@@ -168,14 +168,16 @@ class FeatureExtractorSOL(SOLExtractor):
         device="cuda",
         batch_size=1,
         feature_id="jtfs",
+        sr=44100,
+        in_shape=2**16,
         **feature_kwargs
     ):
         super().__init__(
             sol_dir,
             os.path.join(sol_dir, feature_id),
-            in_shape=feature_kwargs["shape"][0],
+            in_shape=in_shape,
         )
-        self.feature = FEATURES_TABLE[feature_id](sr=44100, batch=batch_size, device=device, **feature_kwargs)
+        self.feature = FEATURES_TABLE[feature_id](sr=sr, batch=batch_size, device=device, **feature_kwargs)
         self.device = device
         self.samples = []
         self.fnames = []
@@ -248,25 +250,30 @@ def extract_features(
     None
     """
     features = {
-        "scat1d": {
-            "shape": (2**16, ),
-            "Q": (12, 2),
-            "J": 12,
-            "global_avg": False
-        }, 
-        "jtfs": {
-            "shape": (2**16, ),
-            "Q": (12, 2),
-            "J": 12,
-            "J_fr": 3,
-            "Q_fr": 2,
-            "F": 12,
-            "T": 2**13,
+        # "scat1d": {
+        #     "shape": (2**16, ),
+        #     "Q": (12, 2),
+        #     "J": 12,
+        #     "global_avg": False
+        # }, 
+        # "jtfs": {
+        #     "shape": (2**16, ),
+        #     "Q": (12, 2),
+        #     "J": 12,
+        #     "J_fr": 3,
+        #     "Q_fr": 2,
+        #     "F": 12,
+        #     "T": 2**13,
+        #     "global_avg": False
+        # },
+        "cqt": {
+            "n_bins": 144,
+            "bins_per_octave": 16,
             "global_avg": False
         }
     }
     for feature_id, feature_kwargs in features.items():
-        extractor = FeatureExtractorSOL(sol_dir, device=device, batch_size=batch_size, feature_id=feature_id, **feature_kwargs)
+        extractor = FeatureExtractorSOL(sol_dir, device=device, batch_size=batch_size, feature_id=feature_id, in_shape=2**16, **feature_kwargs)
         extractor.extract()
         extractor.save_features()
         extractor.save_stats()

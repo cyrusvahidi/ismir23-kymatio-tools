@@ -8,6 +8,7 @@ from tqdm import tqdm
 from kymatio.torch import Scattering1D, TimeFrequencyScattering
 import openl3
 
+import nnAudio.features as nnFeatures
 
 class AcousticFeature:
     def __init__(self, sr=44100, batch=1):
@@ -359,3 +360,78 @@ class YAMNet(AcousticFeature):
     @classmethod
     def get_id(cls):
         return "yamnet"
+
+
+class CQT(AcousticFeature):
+    """
+    The Scat1d class is a subclass of the AcousticFeature class that computes the 1D scattering transform of an audio signal.
+
+    Attributes:
+        sr (int): The sample rate of the audio signal.
+        batch (int): The number of audio signals to process at once.
+        device (str): The device to use for computation. Either "cpu" or "cuda".
+        J (int): The maximum scale of the scattering transform.
+        Q (int): The number of wavelets per octave.
+        T (int or None): The size of the temporal window used for the scattering transform. If None, the size is automatically determined based on the signal length.
+        shape (int or None): The size of the input signal. If None, the size is automatically determined based on the shape of the input tensor.
+
+    Methods:
+        __init__(sr=44100, batch=1, device="cpu", shape=None, J=8, Q=1, T=None): Initializes a new instance of the Scat1d class.
+        compute_features(x): Computes the 1D scattering transform for the given audio signal(s).
+        get_id(): Returns a string identifier for the 1D scattering transform.
+    """
+
+    def __init__(self, sr=44100, batch=1, device="cpu", n_bins=144, bins_per_octave=12, hop_length=512, global_avg=True):
+        """
+        Initializes a new instance of the Scat1d class.
+
+        Args:
+            sr (int): The sample rate of the audio signal.
+            batch (int): The number of audio signals to process at once.
+            device (str): The device to use for computation. Either "cpu" or "cuda".
+        """
+        super().__init__(sr=sr, batch=batch)
+        self.sr = sr
+        self.batch = batch
+
+        self.transform = nnFeatures.CQT(sr=sr, n_bins=n_bins, bins_per_octave=bins_per_octave, hop_length=hop_length)
+
+        self.to_device(device)
+
+        self.global_avg = global_avg
+
+    def compute_features(self, x):
+        """
+        Computes the CQT for the given audio signal(s).
+
+        Args:
+            x (ndarray): The audio signal(s) to compute the CQT for.
+
+        Returns:
+            ndarray: The computed CQT coefficients.
+
+        Raises:
+            ValueError: Raised if the input audio signal(s) have an invalid shape.
+        """
+        X = torch.cat(
+            [
+                self.transform(x[i * self.batch : (i + 1) * self.batch, :])
+                for i in tqdm(range(math.ceil(x.shape[0] / self.batch)))
+            ]
+        )
+        if self.global_avg:
+            X = X.mean(dim=-1)
+        self.mu = X.mean(dim=0)
+        self.median = X.median(dim=0)[0]
+        return X
+
+    @classmethod
+    def get_id(cls):
+        """
+        Returns a string identifier for the CQT
+
+        Returns:
+            str: The string identifier for the CQT
+        """
+        return "cqt"
+
