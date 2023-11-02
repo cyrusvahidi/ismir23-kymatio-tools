@@ -1,3 +1,4 @@
+from typing import List, Dict, Any, Tuple, Optional
 import librosa
 import torch, numpy as np
 import matplotlib.pyplot as plt
@@ -42,7 +43,114 @@ def plot_cqt(y, hop_length=32, bins_per_octave=24, sr=2**13, ax=None):
     librosa.display.specshow((np.abs(CQT) ** 0.33), **cqt_kwargs, ax=ax)
 
 
+def plot_scalogram(scalogram: torch.Tensor, 
+                   sr: float, 
+                   y_coords: List[float], 
+                   title: str = "scalogram", 
+                   hop_len: int = 1, 
+                   cmap: str = "magma",
+                   vmax: Optional[float] = None,
+                   save_path: Optional[str] = None) -> None:
+    """
+    Plots a scalogram of the provided data.
+
+    The scalogram is a visual representation of the wavelet transform of a signal over time. 
+    This function uses matplotlib and librosa to create the plot.
+
+    Parameters:
+    scalogram (T): The scalogram data to be plotted.
+    sr (float): The sample rate of the audio signal.
+    y_coords (List[float]): The y-coordinates for the scalogram plot.
+    title (str, optional): The title of the plot. Defaults to "scalogram".
+    hop_len (int, optional): The hop length for the time axis (or T). Defaults to 1.
+    cmap (str, optional): The colormap to use for the plot. Defaults to "magma".
+    vmax (Optional[float], optional): The maximum value for the colorbar. If None, the colorbar scales with the data. Defaults to None.
+    save_path (Optional[str], optional): The path to save the plot. If None, the plot is not saved. Defaults to None.
+
+    Returns:
+    None
+    """
+    assert scalogram.ndim == 2
+    assert scalogram.size(0) == len(y_coords)
+    x_coords = librosa.times_like(scalogram.size(1), sr=sr, hop_length=hop_len)
+
+    plt.figure(figsize=(10, 5))
+    librosa.display.specshow(scalogram.numpy(),
+                             sr=sr,
+                             x_axis="time",
+                             x_coords=x_coords,
+                             y_axis="cqt_hz",
+                             y_coords=np.array(y_coords),
+                             cmap=cmap,
+                             vmin=0.0,
+                             vmax=vmax)
+    plt.xlabel("Time (seconds)", fontsize=18)
+    plt.ylabel("Frequency (Hz)", fontsize=18)
+    if len(y_coords) < 12:
+        ax = plt.gca()
+        ax.set_yticks(y_coords)
+    plt.minorticks_off()
+    plt.title(title, fontsize=18)
+    if save_path:
+        plt.savefig(save_path, bbox_inches='tight')
+        plt.close()
+
+
+
+def extract_s2_scalogram(s_all: Dict[Tuple[int, int], torch.Tensor], s1_idx: int, n_s2: int, pad: bool = True) -> (torch.Tensor, List[int]):
+    """
+    Extracts a second-order scalogram from a dictionary of scattering coefficients.
+
+    This function iterates over the dictionary `s_all` and collects the scattering coefficients corresponding to the provided `s1_idx`. 
+    If a coefficient is not found and `pad` is True, a tensor of zeros is added instead. 
+    The collected coefficients are then stacked into a tensor to form the scalogram.
+
+    Parameters:
+    s_all (Dict[Tuple[int, int], torch.Tensor]): A dictionary where the keys are tuples of indices and the values are scattering coefficients.
+    s1_idx (int): The index of the first-order scattering coefficient to extract.
+    n_s2 (int): The total number of second-order scattering coefficients.
+    pad (bool, optional): Whether to add a tensor of zeros when a coefficient is not found. Defaults to True.
+
+    Returns:
+    scalogram (torch.Tensor): The extracted second-order scalogram.
+    s2_indices (List[int]): The indices of the second-order scattering coefficients that were found or padded.
+    """
+    assert s_all, "s_all is empty"
+    rows = []
+    s2_indices = []
+    for curr_s2_idx in range(n_s2):
+        key = (s1_idx, curr_s2_idx)
+        if key in s_all:
+            rows.append(s_all[key])
+            s2_indices.append(curr_s2_idx)
+        else:
+            if pad:
+                rows.append(torch.zeros_like(list(s_all.values())[0]))
+                s2_indices.append(curr_s2_idx)
+    
+    assert rows, f"No scattering coefficients were found for s1 idx of {s1_idx}"
+    scalogram = torch.stack(rows, dim=0)
+    return scalogram, s2_indices
+
+
 def grid2d(x1: float, x2: float, y1: float, y2: float, n: float):
+    """
+    Generates a 2D grid of logarithmically spaced points.
+
+    This function generates two 1D arrays: one for the x-coordinates and one for the y-coordinates. 
+    The points are logarithmically spaced between the provided bounds (x1, x2) and (y1, y2).
+
+    Parameters:
+    x1 (float): The lower bound for the x-coordinates.
+    x2 (float): The upper bound for the x-coordinates.
+    y1 (float): The lower bound for the y-coordinates.
+    y2 (float): The upper bound for the y-coordinates.
+    n (float): The number of points to generate for each coordinate.
+
+    Returns:
+    X (Tensor): A 1D tensor of the x-coordinates of the grid points.
+    Y (Tensor): A 1D tensor of the y-coordinates of the grid points.
+    """
     a = torch.logspace(np.log10(x1), np.log10(x2), n)
     b = torch.logspace(np.log10(y1), np.log10(y2), n)
     X = a.repeat(n)
@@ -68,9 +176,6 @@ def plot_gradient_field(x, y, u, v, x_range, y_range, target, save_path):
     plt.xlabel("AM (Hz)")
     plt.ylabel("FM (oct / s)")
     plt.show()
-
-    os.makedirs(os.path.dirname(save_path), exist_ok=True)
-    plt.savefig(save_path, dpi=300)
 
 
 def plot_contour_gradient(X, Y, Z, target_idx, grads, ylabel="FM (oct / s)"):

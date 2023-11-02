@@ -224,6 +224,26 @@ def extract_features(
     batch_size (int): The number of audio files to be processed at a time. Default is 16.
     device (str): The device to use for computations. Default is "cuda" for GPU usage.
 
+    kwargs for `Scattering1D` and `TimeFrequencyScattering`:
+        features = {
+            "scat1d": {
+                "shape": (2**16, ),
+                "Q": (12, 2),
+                "J": 12,
+                "global_avg": False
+            }, 
+            "jtfs": {
+                "shape": (2**16, ),
+                "Q": (12, 2),
+                "J": 12,
+                "J_fr": 3,
+                "Q_fr": 2,
+                "F": 12,
+                "T": 2**13,
+                "global_avg": False
+            }
+        }
+
     Returns:
     None
     """
