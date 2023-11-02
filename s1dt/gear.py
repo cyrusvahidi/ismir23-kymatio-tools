@@ -86,8 +86,9 @@ class GEAR:
 
     def get_ratios(self):
         knn = self.model.nbrs_.kneighbors()
+        breakpoint()
         self.ratios = np.vstack([
             np.exp(np.mean(np.log(self.theta.T[:, knn[1][i, :]]), axis=1)) / self.theta.T[:, i]
-            for i in range(self.Z.shape[0])
+            for i in range(self.X.shape[0])
         ])
         return self.ratios
