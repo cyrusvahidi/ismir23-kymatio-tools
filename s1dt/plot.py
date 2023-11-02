@@ -3,7 +3,7 @@ import librosa
 import torch, numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import cm
-
+from fractions import Fraction
 
 def plot_spec(y, hop_length=256, n_fft=4096, sr=2**13):
     fig, ax = plt.subplots()
@@ -267,3 +267,29 @@ def plot_isomap(Z, params, labels=[]):
         for ax in axs:
             ax.view_init(30, angle)
             plt.draw()
+
+def plot_knn_regression(ratios):
+    plt.clf()
+    yticklabels = ["1/3", "1/2", "1", "2", "3"]
+    objs = ["Carrier freq.", "Modulation freq.", "Chirp rate"]
+
+    N = len(ratios[list(ratios.keys())[0]][:, 0])
+
+    fig, axes = plt.subplots(ncols=3, figsize=plt.figaspect(.5), sharey=True)
+    for i, ratio in enumerate(ratios.values()):
+        for idx, ax in enumerate(axes.flat):
+            ax.plot(np.random.uniform(i - 0.1, i + 0.1, N),
+                    np.log2(ratio[:, idx]), ".", markersize=1)
+
+            ax.set_yticks(np.log2(np.array([float(Fraction(label))
+                                            for label in yticklabels])))
+            ax.set_xticks([i for i in range(len(ratios))])
+            ax.set_xticklabels(list(ratios.keys()), fontsize=13)
+            ax.set_yticklabels(yticklabels)
+            ax.grid(linestyle="--")
+            ax.set_title(objs[idx], fontsize=14)
+            if idx == 0:
+                ax.set_ylabel("Relative estimate", fontsize=14)
+
+    fig.subplots_adjust(left=0, right=1, bottom=0, top=1, wspace=.01)
+    plt.tight_layout()

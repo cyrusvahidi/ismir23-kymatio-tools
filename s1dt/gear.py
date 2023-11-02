@@ -1,3 +1,4 @@
+import numpy as np
 from sklearn.manifold import Isomap
 
 from .core import FEATURES_TABLE
@@ -82,3 +83,11 @@ class GEAR:
             FeaturesNotComputedError: Raised if the acoustic features have not been computed yet.
         """
         plot_isomap(self.model.embedding_, self.theta.T, labels=labels)
+
+    def get_ratios(self):
+        knn = self.model.nbrs_.kneighbors()
+        self.ratios = np.vstack([
+            np.exp(np.mean(np.log(self.theta.T[:, knn[1][i, :]]), axis=1)) / self.theta.T[:, i]
+            for i in range(self.Z.shape[0])
+        ])
+        return self.ratios

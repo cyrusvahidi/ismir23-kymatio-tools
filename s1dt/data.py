@@ -256,21 +256,21 @@ def extract_features(
         #     "J": 12,
         #     "global_avg": False
         # }, 
-        # "jtfs": {
-        #     "shape": (2**16, ),
-        #     "Q": (12, 2),
-        #     "J": 12,
-        #     "J_fr": 3,
-        #     "Q_fr": 2,
-        #     "F": 12,
-        #     "T": 2**13,
-        #     "global_avg": False
-        # },
-        "cqt": {
-            "n_bins": 144,
-            "bins_per_octave": 16,
+        "jtfs": {
+            "shape": (2**16, ),
+            "Q": (12, 2),
+            "J": 12,
+            "J_fr": 3,
+            "Q_fr": 2,
+            "F": 12,
             "global_avg": False
-        }
+        },
+        # "cqt": {
+        #     "n_bins": 144,
+        #     "bins_per_octave": 16,
+        #     "hop_length": 512,
+        #     "global_avg": False
+        # }
     }
     for feature_id, feature_kwargs in features.items():
         extractor = FeatureExtractorSOL(sol_dir, device=device, batch_size=batch_size, feature_id=feature_id, in_shape=2**16, **feature_kwargs)
