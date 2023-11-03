@@ -234,95 +234,95 @@ class MagnitudeSTFT(nn.Module):
         ).abs()
 
 
-class DTFA:
+# class DTFA:
 
-    def __init__(self, dist="jtfs", am_range=(4, 16), fm_range=(0.5, 4), N=20, target=None, f0=768.0, sr=2**12, time_shift=None):
-        self.thetas = thetas
-        self.dist = dist
+#     def __init__(self, dist="jtfs", am_range=(4, 16), fm_range=(0.5, 4), N=20, target=None, f0=768.0, sr=2**12, time_shift=None):
+#         self.thetas = thetas
+#         self.dist = dist
         
-        self.f0 = f0
-        self.sr = sr
-        self.N = N
+#         self.f0 = f0
+#         self.sr = sr
+#         self.N = N
 
-        self.target = target
-        self.time_shift = time_shift
-        self.target_idx = N * (N // 2) + (N // 2)
+#         self.target = target
+#         self.time_shift = time_shift
+#         self.target_idx = N * (N // 2) + (N // 2)
 
-        self.AM, self.FM = grid2d(x1=am_range[0], x2=am_range1, y1=fm_range[0], y2=fm_range[1], n=N)
-        self.AM.requires_grad = True
-        self.FM.requires_grad = True
-        self.thetas = torch.stack([self.AM, self.FM], dim=-1).cuda()
+#         self.AM, self.FM = grid2d(x1=am_range[0], x2=am_range1, y1=fm_range[0], y2=fm_range[1], n=N)
+#         self.AM.requires_grad = True
+#         self.FM.requires_grad = True
+#         self.thetas = torch.stack([self.AM, self.FM], dim=-1).cuda()
 
-        theta_target = thetas[target_idx].clone().detach().requires_grad_(False)
-        self.target = (
-            generate_am_chirp(
-                [f0, theta_target[0], theta_target[1]], sr=sr, duration=duration
-            )
-            .cuda()
-            .detach()
-        )
+#         theta_target = thetas[target_idx].clone().detach().requires_grad_(False)
+#         self.target = (
+#             generate_am_chirp(
+#                 [f0, theta_target[0], theta_target[1]], sr=sr, duration=duration
+#             )
+#             .cuda()
+#             .detach()
+#         )
 
-        if dist == "jtfs":
-            loss_fn = TimeFrequencyScatteringLoss(
-                shape=(sr * duration,),
-                Q=(8, 2),
-                J=12,
-                J_fr=5,
-                F=0,
-                Q_fr=2,
-                format="time",
-            )
-            Sx_target = loss_fn.ops[0](target.cuda()).detach()
-        elif dist == "mss":
-            loss_fn = MultiScaleSpectralLoss(max_n_fft=1024)
+#         if dist == "jtfs":
+#             loss_fn = TimeFrequencyScatteringLoss(
+#                 shape=(sr * duration,),
+#                 Q=(8, 2),
+#                 J=12,
+#                 J_fr=5,
+#                 F=0,
+#                 Q_fr=2,
+#                 format="time",
+#             )
+#             Sx_target = loss_fn.ops[0](target.cuda()).detach()
+#         elif dist == "mss":
+#             loss_fn = MultiScaleSpectralLoss(max_n_fft=1024)
 
-    def compute_grads(self, target):
-        losses, grads = [], []
-        for theta in tqdm.tqdm(self.thetas):
-            am = torch.tensor(theta[0], requires_grad=True, dtype=torch.float32)
-            fm = torch.tensor(theta[1], requires_grad=True, dtype=torch.float32)
-            audio = generate_am_chirp(
-                [torch.tensor([self.f0, dtype=torch.float32, requires_grad=False).cuda(), am, fm],
-                sr=sr,
-                duration=duration,
-                delta=(2 ** random.randint(8, 12) if self.time_shift == "random" else 2**8)
-                if self.time_shift
-                else 0,
-            )
+#     def compute_grads(self, target):
+#         losses, grads = [], []
+#         for theta in tqdm.tqdm(self.thetas):
+#             am = torch.tensor(theta[0], requires_grad=True, dtype=torch.float32)
+#             fm = torch.tensor(theta[1], requires_grad=True, dtype=torch.float32)
+#             audio = generate_am_chirp(
+#                 [torch.tensor([self.f0, dtype=torch.float32, requires_grad=False).cuda(), am, fm],
+#                 sr=sr,
+#                 duration=duration,
+#                 delta=(2 ** random.randint(8, 12) if self.time_shift == "random" else 2**8)
+#                 if self.time_shift
+#                 else 0,
+#             )
 
-            loss = (
-                loss_fn(audio.cuda(), self.target.cuda(), transform_y=False)
-                if self.target
-                else loss_fn(audio, target)
-            )
-            loss.backward()
-            losses.append(float(loss.detach().cpu().numpy()))
-            x.append(float(am))
-            y.append(float(fm))
-            u.append(float(-am.grad))
-            v.append(float(-fm.grad))
+#             loss = (
+#                 loss_fn(audio.cuda(), self.target.cuda(), transform_y=False)
+#                 if self.target
+#                 else loss_fn(audio, target)
+#             )
+#             loss.backward()
+#             losses.append(float(loss.detach().cpu().numpy()))
+#             x.append(float(am))
+#             y.append(float(fm))
+#             u.append(float(-am.grad))
+#             v.append(float(-fm.grad))
 
-            grad = np.stack([float(-am.grad), float(-fm.grad)])
-            grads.append(grad)
-        self.grads = grads 
-        self.losses = losses 
+#             grad = np.stack([float(-am.grad), float(-fm.grad)])
+#             grads.append(grad)
+#         self.grads = grads 
+#         self.losses = losses 
     
-    def meshplot(self):
-        X = self.AM.numpy().reshape((N, N))
-        Y = self.FM.numpy().reshape((N, N))
-        zs = np.array(self.losses)
-        Z = zs.reshape(X.shape)
-        mesh_plot_3d(X, Y, Z, self.target_idx)
+#     def meshplot(self):
+#         X = self.AM.numpy().reshape((N, N))
+#         Y = self.FM.numpy().reshape((N, N))
+#         zs = np.array(self.losses)
+#         Z = zs.reshape(X.shape)
+#         mesh_plot_3d(X, Y, Z, self.target_idx)
 
-    def contour_gradients(self):
-        X = self.AM.numpy().reshape((N, N))
-        Y = self.FM.numpy().reshape((N, N))
-        zs = np.array(self.losses)
-        Z = zs.reshape(X.shape)
-        plot_contour_gradient(
-            X,
-            Y,
-            Z,
-            self.target_idx,
-            self.grads
-        )
+#     def contour_gradients(self):
+#         X = self.AM.numpy().reshape((N, N))
+#         Y = self.FM.numpy().reshape((N, N))
+#         zs = np.array(self.losses)
+#         Z = zs.reshape(X.shape)
+#         plot_contour_gradient(
+#             X,
+#             Y,
+#             Z,
+#             self.target_idx,
+#             self.grads
+#         )
