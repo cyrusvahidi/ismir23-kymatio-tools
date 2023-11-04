@@ -43,32 +43,33 @@ def plot_cqt(y, hop_length=32, bins_per_octave=24, sr=2**13, ax=None):
     librosa.display.specshow((np.abs(CQT) ** 0.33), **cqt_kwargs, ax=ax)
 
 
-def plot_scalogram(scalogram: torch.Tensor, 
-                   sr: float, 
-                   y_coords: List[float], 
-                   title: str = "scalogram", 
-                   hop_len: int = 1, 
+def plot_scalogram(scalogram: Tensor,
+                   sr: float,
+                   y_coords: List[float],
+                   title: str = "scalogram",
+                   hop_len: int = 1,
                    cmap: str = "magma",
                    vmax: Optional[float] = None,
-                   save_path: Optional[str] = None) -> None:
+                   save_path: Optional[str] = None,
+                   x_label: str = "Time (seconds)",
+                   y_label: str = "Frequency (Hz)") -> None:
     """
     Plots a scalogram of the provided data.
 
-    The scalogram is a visual representation of the wavelet transform of a signal over time. 
+    The scalogram is a visual representation of the wavelet transform of a signal over time.
     This function uses matplotlib and librosa to create the plot.
 
     Parameters:
-    scalogram (T): The scalogram data to be plotted.
-    sr (float): The sample rate of the audio signal.
-    y_coords (List[float]): The y-coordinates for the scalogram plot.
-    title (str, optional): The title of the plot. Defaults to "scalogram".
-    hop_len (int, optional): The hop length for the time axis (or T). Defaults to 1.
-    cmap (str, optional): The colormap to use for the plot. Defaults to "magma".
-    vmax (Optional[float], optional): The maximum value for the colorbar. If None, the colorbar scales with the data. Defaults to None.
-    save_path (Optional[str], optional): The path to save the plot. If None, the plot is not saved. Defaults to None.
-
-    Returns:
-    None
+        scalogram (T): The scalogram data to be plotted.
+        sr (float): The sample rate of the audio signal.
+        y_coords (List[float]): The y-coordinates for the scalogram plot.
+        title (str, optional): The title of the plot. Defaults to "scalogram".
+        hop_len (int, optional): The hop length for the time axis (or T). Defaults to 1.
+        cmap (str, optional): The colormap to use for the plot. Defaults to "magma".
+        vmax (Optional[float], optional): The maximum value for the colorbar. If None, the colorbar scales with the data. Defaults to None.
+        save_path (Optional[str], optional): The path to save the plot. If None, the plot is not saved. Defaults to None.
+        x_label (str, optional): The label for the x-axis. Defaults to "Time (seconds)".
+        y_label (str, optional): The label for the y-axis. Defaults to "Frequency (Hz)".
     """
     assert scalogram.ndim == 2
     assert scalogram.size(0) == len(y_coords)
@@ -84,53 +85,16 @@ def plot_scalogram(scalogram: torch.Tensor,
                              cmap=cmap,
                              vmin=0.0,
                              vmax=vmax)
-    plt.xlabel("Time (seconds)", fontsize=18)
-    plt.ylabel("Frequency (Hz)", fontsize=18)
+    plt.xlabel(x_label, fontsize=16)
+    plt.ylabel(y_label, fontsize=16)
     if len(y_coords) < 12:
         ax = plt.gca()
         ax.set_yticks(y_coords)
     plt.minorticks_off()
-    plt.title(title, fontsize=18)
+    plt.title(title, fontsize=16)
     if save_path:
         plt.savefig(save_path, bbox_inches='tight')
         plt.close()
-
-
-
-def extract_s2_scalogram(s_all: Dict[Tuple[int, int], torch.Tensor], s1_idx: int, n_s2: int, pad: bool = True) -> (torch.Tensor, List[int]):
-    """
-    Extracts a second-order scalogram from a dictionary of scattering coefficients.
-
-    This function iterates over the dictionary `s_all` and collects the scattering coefficients corresponding to the provided `s1_idx`. 
-    If a coefficient is not found and `pad` is True, a tensor of zeros is added instead. 
-    The collected coefficients are then stacked into a tensor to form the scalogram.
-
-    Parameters:
-    s_all (Dict[Tuple[int, int], torch.Tensor]): A dictionary where the keys are tuples of indices and the values are scattering coefficients.
-    s1_idx (int): The index of the first-order scattering coefficient to extract.
-    n_s2 (int): The total number of second-order scattering coefficients.
-    pad (bool, optional): Whether to add a tensor of zeros when a coefficient is not found. Defaults to True.
-
-    Returns:
-    scalogram (torch.Tensor): The extracted second-order scalogram.
-    s2_indices (List[int]): The indices of the second-order scattering coefficients that were found or padded.
-    """
-    assert s_all, "s_all is empty"
-    rows = []
-    s2_indices = []
-    for curr_s2_idx in range(n_s2):
-        key = (s1_idx, curr_s2_idx)
-        if key in s_all:
-            rows.append(s_all[key])
-            s2_indices.append(curr_s2_idx)
-        else:
-            if pad:
-                rows.append(torch.zeros_like(list(s_all.values())[0]))
-                s2_indices.append(curr_s2_idx)
-    
-    assert rows, f"No scattering coefficients were found for s1 idx of {s1_idx}"
-    scalogram = torch.stack(rows, dim=0)
-    return scalogram, s2_indices
 
 
 def grid2d(x1: float, x2: float, y1: float, y2: float, n: float):
@@ -293,3 +257,283 @@ def plot_knn_regression(ratios):
 
     fig.subplots_adjust(left=0, right=1, bottom=0, top=1, wspace=.01)
     plt.tight_layout()
+
+
+def extract_s2_scalogram(s_scat_1d: Dict[Tuple[int, int], Tensor],
+                         sr: float,
+                         psi1_f_idx: int,
+                         psi2_f: List[Dict[str, Any]],
+                         pad: bool = True,
+                         is_jtfst: bool = False) -> (Tensor, List[float]):
+    """
+    Extracts a second-order scalogram from a dictionary of scattering coefficients.
+
+    This function iterates over the dictionary `s_all` and collects the scattering coefficients corresponding to the provided `s1_idx`.
+    If a coefficient is not found and `pad` is True, a tensor of zeros is added instead.
+    The collected coefficients are then stacked into a tensor to form the scalogram.
+
+    Parameters:
+        s_scat_1d (Dict[Tuple[int, int], torch.Tensor]): A dictionary where the keys are tuples of indices and the values are scattering coefficients.
+        sr: Sampling rate.
+        psi1_f_idx (int): The index of the first-order scattering coefficient to extract.
+        psi2_f (List[Dict[str, Any]]): The list of second-order filters.
+        pad (bool, optional): Whether to add a tensor of zeros when a coefficient is not found. Defaults to True.
+        is_jtfst (bool, optional): Whether the scattering coefficients are from a JTFST. Defaults to False.
+
+    Returns:
+        scalogram (torch.Tensor): The extracted second-order scalogram.
+        filter_freqs (List[float]): The frequencies of the second-order filters.
+    """
+    assert s_scat_1d, "s_scat_1d is empty"
+    n_psi2_f = len(psi2_f)
+    rows = []
+    psi2_f_indices = []
+    for curr_psi2_f_index in range(n_psi2_f):
+        if is_jtfst:
+            key = (psi1_f_idx, curr_psi2_f_index, 0)
+        else:
+            key = (psi1_f_idx, curr_psi2_f_index)
+        if key in s_scat_1d:
+            rows.append(s_scat_1d[key])
+            psi2_f_indices.append(curr_psi2_f_index)
+        else:
+            if pad:
+                rows.append(tr.zeros_like(list(s_scat_1d.values())[0]))
+                psi2_f_indices.append(curr_psi2_f_index)
+
+    assert rows, f"No scattering coefficients were found for psi1_f_idx of {psi1_f_idx}"
+    scalogram = tr.stack(rows, dim=0)
+    filter_freqs = [psi2_f[idx]["xi"] * sr for idx in psi2_f_indices]
+    return scalogram, filter_freqs
+
+
+def create_s2_gif(s_scat_1d: Dict[Tuple[int, int], Tensor],
+                  sr: float,
+                  psi1_f: List[Dict[str, Any]],
+                  psi2_f: List[Dict[str, Any]],
+                  save_dir: str,
+                  save_name: str,
+                  title_prefix: str = "S2",
+                  min_s1_freq_hz: float = 0,
+                  max_s1_freq_hz: float = np.inf,
+                  hop_len: int = 1,
+                  use_vmax: bool = True,
+                  discard_empty: bool = False,
+                  fps: int = 7,
+                  is_jtfst: bool = False,
+                  x_label: str = "Time (seconds)",
+                  y_label: str = "2nd Order Filter Frequency (Hz)") -> None:
+    """
+    Creates a gif of second-order scalograms.
+
+    Parameters:
+        s_scat_1d (Dict[Tuple[int, int], torch.Tensor]): A dictionary where the keys are tuples of indices and the values are scattering coefficients.
+        sr: Sampling rate.
+        psi1_f (List[Dict[str, Any]]): The list of first-order filters.
+        psi2_f (List[Dict[str, Any]]): The list of second-order filters.
+        save_dir (str): The directory to save the gif.
+        save_name (str): The name of the gif.
+        title_prefix (str, optional): The prefix for the title of each frame. Defaults to "S2".
+        min_s1_freq_hz (float, optional): The minimum frequency of the first-order filter. Defaults to 0.
+        max_s1_freq_hz (float, optional): The maximum frequency of the first-order filter. Defaults to np.inf.
+        hop_len (int, optional): The hop length for the time axis (or T). Defaults to 1.
+        use_vmax (bool, optional): Whether to use a fixed maximum value for the colorbar. Defaults to True.
+        discard_empty (bool, optional): Whether to discard frames with no scattering coefficients. Defaults to False.
+        fps (int, optional): The frames per second for the gif. Defaults to 7.
+        is_jtfst (bool, optional): Whether the scattering coefficients are from a JTFST. Defaults to False.
+        x_label (str, optional): The label for the x-axis. Defaults to "Time (seconds)".
+        y_label (str, optional): The label for the y-axis. Defaults to "2nd Order Filter Frequency (Hz)".
+    """
+    frames_s2 = []
+    for psi1_f_idx in range(len(psi1_f)):
+        s1_freq = psi1_f[psi1_f_idx]["xi"] * sr
+        if s1_freq < min_s1_freq_hz or s1_freq > max_s1_freq_hz:
+            continue
+        s2, filter_freqs = extract_s2_scalogram(s_scat_1d, sr, psi1_f_idx, psi2_f,
+                                                pad=True, is_jtfst=is_jtfst)
+        if (discard_empty and s2.max() > 0) or not discard_empty:
+            frames_s2.append((s2, filter_freqs, psi1_f_idx, s1_freq))
+
+    if use_vmax:
+        s2_max = max([s2.max().item() for s2, _, _, _ in frames_s2])
+    else:
+        s2_max = None
+
+    frames = []
+    for s2, filter_freqs, psi1_f_idx, s1_freq in tqdm(frames_s2):
+        frame_save_path = os.path.join(save_dir, f"s2_{psi1_f_idx}.png")
+        plot_scalogram(s2,
+                       sr=sr,
+                       y_coords=filter_freqs,
+                       hop_len=hop_len,
+                       vmax=s2_max,
+                       title=f"{title_prefix} at {s1_freq:.2f} Hz",
+                       save_path=frame_save_path,
+                       x_label=x_label,
+                       y_label=y_label)
+        img = imageio.v2.imread(frame_save_path)
+        frames.append(img)
+
+    frames.reverse()
+    save_path = os.path.join(save_dir, f"{save_name}.gif")
+    imageio.mimsave(save_path, frames, fps=fps, loop=50000)
+
+
+def extract_jtfst_scalogram(s_jtfst: Dict[Tuple[int, int, int], Tensor],
+                            sr: float,
+                            psi2_f_idx: int,
+                            filters_fr_idx: int,
+                            psi1_f: List[Dict[str, Any]],
+                            pad: bool = True) -> (Tensor, List[float]):
+    """
+    Extracts a scalogram from a dictionary of scattering coefficients.
+
+    Parameters:
+        s_jtfst (Dict[Tuple[int, int, int], torch.Tensor]): A dictionary where the keys are tuples of indices and the values are scattering coefficients.
+        sr: Sampling rate.
+        psi2_f_idx (int): The index of the second-order scattering coefficient to extract.
+        filters_fr_idx (int): The index of the filter to extract.
+        psi1_f (List[Dict[str, Any]]): The list of first-order filters.
+        pad (bool, optional): Whether to add a tensor of zeros when a coefficient is not found. Defaults to True.
+
+    Returns:
+        scalogram (torch.Tensor): The extracted scalogram.
+        filter_freqs (List[float]): The frequencies of the first-order filters.
+    """
+    assert s_jtfst, "s_jtfst is empty"
+    n_psi1_f = len(psi1_f)
+    rows = []
+    psi1_f_indices = []
+    for curr_psi1_f_idx in range(n_psi1_f):
+        key = (curr_psi1_f_idx, psi2_f_idx, filters_fr_idx)
+        if key in s_jtfst:
+            rows.append(s_jtfst[key])
+            psi1_f_indices.append(curr_psi1_f_idx)
+        else:
+            if pad:
+                rows.append(tr.zeros_like(list(s_jtfst.values())[0]))
+                psi1_f_indices.append(curr_psi1_f_idx)
+
+    filter_freqs = [psi1_f[idx]["xi"] * sr for idx in psi1_f_indices]
+
+    assert rows, f"No scattering coefficients were found for psi2_f_idx of {psi2_f_idx} and filters_fr_idx of {filters_fr_idx}"
+    scalogram = tr.stack(rows, dim=0)
+    return scalogram, filter_freqs
+
+
+def create_jtfst_gif(s_jtfst: Dict[Tuple[int, int, int], Tensor],
+                     sr: float,
+                     psi1_f: List[Dict[str, Any]],
+                     psi2_f: List[Dict[str, Any]],
+                     filters_fr: List[Dict[str, Any]],
+                     save_dir: str,
+                     save_name: str,
+                     show_both_thetas: bool = True,
+                     title_prefix: str = "JTFST",
+                     min_psi2_f_freq_hz: float = 0,
+                     max_psi2_f_freq_hz: float = np.inf,
+                     min_filters_fr_freq_hz: float = 0,
+                     max_filters_fr_freq_hz: float = np.inf,
+                     hop_len: int = 1,
+                     use_vmax: bool = False,
+                     discard_empty: bool = True,
+                     fps: int = 7) -> None:
+    """
+    Creates a gif of second-order scalograms.
+
+    Parameters:
+        s_jtfst (Dict[Tuple[int, int, int], torch.Tensor]): A dictionary where the keys are tuples of indices and the values are scattering coefficients.
+        sr: Sampling rate.
+        psi1_f (List[Dict[str, Any]]): The list of first-order filters.
+        psi2_f (List[Dict[str, Any]]): The list of second-order filters.
+        filters_fr (List[Dict[str, Any]]): The list of frequential filters.
+        save_dir (str): The directory to save the gif.
+        save_name (str): The name of the gif.
+        show_both_thetas (bool, optional): Whether to show both positive and negative theta values. Defaults to True.
+        title_prefix (str, optional): The prefix for the title of each frame. Defaults to "JTFST".
+        min_psi2_f_freq_hz (float, optional): The minimum frequency of the second-order filter. Defaults to 0.
+        max_psi2_f_freq_hz (float, optional): The maximum frequency of the second-order filter. Defaults to np.inf.
+        min_filters_fr_freq_hz (float, optional): The minimum frequency of the filter. Defaults to 0.
+        max_filters_fr_freq_hz (float, optional): The maximum frequency of the filter. Defaults to np.inf.
+        hop_len (int, optional): The hop length for the time axis (or T). Defaults to 1.
+        use_vmax (bool, optional): Whether to use a fixed maximum value for the colorbar. Defaults to False.
+        discard_empty (bool, optional): Whether to discard frames with no scattering coefficients. Defaults to True.
+        fps (int, optional): The frames per second for the gif. Defaults to 7.
+    """
+    frames_s2 = []
+
+    filters_fr_indices_pos = []
+    filters_fr_indices_neg = []
+    for idx in range(len(filters_fr)):
+        xi = filters_fr[idx]["xi"]
+        if xi == 0:
+            filters_fr_indices_pos.append(idx)
+            filters_fr_indices_neg.append(None)
+        elif xi > 0:
+            filters_fr_indices_pos.append(idx)
+            neg_idx = len(filters_fr) // 2 + idx
+            assert filters_fr[neg_idx]["xi"] == -xi
+            filters_fr_indices_neg.append(neg_idx)
+    assert len(filters_fr_indices_pos) == len(filters_fr_indices_neg)
+
+    for psi2_f_idx in range(len(psi2_f)):
+        psi2_f_freq = psi2_f[psi2_f_idx]["xi"] * sr
+        if psi2_f_freq < min_psi2_f_freq_hz or psi2_f_freq > max_psi2_f_freq_hz:
+            continue
+        for filters_fr_idx_pos, filters_fr_idx_neg in zip(filters_fr_indices_pos,
+                                                          filters_fr_indices_neg):
+            filters_fr_freq = filters_fr[filters_fr_idx_pos]["xi"] * sr
+            # TODO(cm): check if 0 should be included
+            if filters_fr_freq == 0 or filters_fr_freq < min_filters_fr_freq_hz or filters_fr_freq > max_filters_fr_freq_hz:
+                continue
+            s2, filter_freqs = extract_jtfst_scalogram(s_jtfst, sr, psi2_f_idx,
+                                                       filters_fr_idx_pos, psi1_f,
+                                                       pad=True)
+            if (discard_empty and s2.max() > 0) or not discard_empty:
+                s2_neg = None
+                if show_both_thetas:
+                    s2_neg, _ = extract_jtfst_scalogram(s_jtfst, sr, psi2_f_idx,
+                                                        filters_fr_idx_neg, psi1_f,
+                                                        pad=True)
+                frames_s2.append((s2, filter_freqs, psi2_f_idx, psi2_f_freq,
+                                  filters_fr_idx_pos, filters_fr_freq, s2_neg))
+
+    if use_vmax:
+        s2_max = max([s2.max().item() for s2, _, _, _, _, _, _ in frames_s2])
+    else:
+        s2_max = None
+
+    frames = []
+    for s2, filter_freqs, psi2_f_idx, psi2_f_freq, filters_fr_idx, filters_fr_freq, s2_neg in tqdm(
+            frames_s2):
+        frame_save_path = os.path.join(save_dir,
+                                       f"jtfst_{psi2_f_idx}_{filters_fr_idx}_pos.png")
+        plot_scalogram(s2,
+                       sr=sr,
+                       y_coords=filter_freqs,
+                       hop_len=hop_len,
+                       vmax=s2_max,
+                       title=f"{title_prefix} at {psi2_f_freq:.2f} Hz, {filters_fr_freq:.2f} Hz, 1",
+                       save_path=frame_save_path)
+        img = imageio.v2.imread(frame_save_path)
+        if show_both_thetas:
+            if s2_neg is None:
+                img_neg = np.zeros_like(img)
+            else:
+                frame_save_path = os.path.join(save_dir,
+                                               f"jtfst_{psi2_f_idx}_{filters_fr_idx}_neg.png")
+                plot_scalogram(s2_neg,
+                               sr=sr,
+                               y_coords=filter_freqs,
+                               hop_len=hop_len,
+                               vmax=s2_max,
+                               title=f"{title_prefix} at {psi2_f_freq:.2f} Hz, {filters_fr_freq:.2f} Hz, -1",
+                               save_path=frame_save_path)
+                img_neg = imageio.v2.imread(frame_save_path)
+            img = np.concatenate((img, img_neg), axis=1)
+
+        frames.append(img)
+
+    frames.reverse()
+    save_path = os.path.join(save_dir, f"{save_name}.gif")
+    imageio.mimsave(save_path, frames, fps=fps, loop=50000)
