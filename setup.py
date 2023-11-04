@@ -18,6 +18,7 @@ setup(
         "tqdm",
         "librosa",
         "openl3",
-        "nnAudio"
+        "nnAudio",
+        "imageio"
     ],
 )
